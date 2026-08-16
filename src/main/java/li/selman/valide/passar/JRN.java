@@ -10,10 +10,24 @@ import li.selman.valide.validator.ValueObjectValidationException;
 import li.selman.valide.validator.ValueValidator;
 import org.jspecify.annotations.Nullable;
 
-// JJ, MM,
-// Einmalige Kennung für Versandvorgang pro Land und Jahr.
-// Nicht enthaltene Zeichen: O (Grosses O - "Oh"), 0 (Null), L, I (grosses i), l (kleines L) - wegen Verwechslungsgefahr
-// JJMMxxxxx
+/**
+ * A Journey Reference Number: identifies a single shipment, unique per country and year.
+ *
+ * <p>The format is {@code YYMMxxxxx}: a two-digit year, a two-digit month ({@code 01}-{@code 12}) and a
+ * five-character code. The two-digit year only spans 2000-2099, which is the range {@link #yearMonth()}
+ * decodes back into.
+ *
+ * <p>The code alphabet deliberately leaves out the characters most easily confused when a JRN is read aloud or
+ * typed by hand: {@code 0} (zero), {@code O} (uppercase o), {@code I} (uppercase i), {@code L} (uppercase l)
+ * and {@code l} (lowercase L). Lowercase {@code i} and {@code o} remain allowed.
+ *
+ * <p>The value is case-sensitive, and the compact constructor rejects anything that does not match with a
+ * {@link ValueObjectValidationException}, so every instance is well-formed. Use
+ * {@link #fromCandidate(String)} to get {@code null} instead of an exception, or {@link #validate(String)} to
+ * inspect the individual {@link ValidationResult}s without constructing anything.
+ *
+ * @param value the raw JRN, for example {@code 2507duTaA}
+ */
 public record JRN(String value) {
 
     private static final Pattern PATTERN =
