@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -106,6 +107,12 @@ class NullSafeValidatorTest {
 
     @Test
     void ignoresTheSyntheticOuterInstanceReferenceOfAnInnerClass() {
+        // javac only emits this$0 for an inner class that actually reads its enclosing instance
+        // (JDK-8271623). Inner does, via enclosingSecret() - assert the field is really there, or this
+        // test would pass vacuously with nothing for the walker to skip.
+        assertThat(new Enclosing().inner().enclosingSecret()).isNull();
+        assertThat(Enclosing.Inner.class.getDeclaredFields()).anyMatch(Field::isSynthetic);
+
         assertThat(pathsOf(new SyntheticHolder())).isEmpty();
     }
 
@@ -252,6 +259,11 @@ class NullSafeValidatorTest {
 
         final class Inner {
             String innerValue = "ok";
+
+            /** Reading the enclosing instance is what makes javac emit the synthetic {@code this$0} field. */
+            String enclosingSecret() {
+                return secret;
+            }
         }
     }
 }
