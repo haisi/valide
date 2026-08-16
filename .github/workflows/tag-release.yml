@@ -1,0 +1,45 @@
+name: Tag Release
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # A tag pushed with the default GITHUB_TOKEN does not trigger other workflows (GitHub
+          # blocks this to prevent infinite trigger loops), so release.yml's `on: push: tags`
+          # would never fire. Pushing with a real PAT instead makes the push indistinguishable
+          # from a human pushing it, so the trigger fires normally.
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: "25"
+          distribution: temurin
+          cache: maven
+
+      - name: Read project version
+        id: version
+        run: |
+          currentVersion=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "version=$(cut -d'-' -f1 <<< "$currentVersion")" >> "$GITHUB_OUTPUT"
+
+      - name: Tag and push
+        run: |
+          tag="v${{ steps.version.outputs.version }}"
+          if git rev-parse "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists." >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"

@@ -1,0 +1,39 @@
+project:
+  name: valide
+  description: Jakarta Bean Validation constraint that recursively validates that every attribute of a class or record is non-null unless annotated with JSpecify's @Nullable.
+  longDescription: |
+    Jakarta Bean Validation constraint that recursively validates that every attribute of a class or record is non-null unless annotated with JSpecify's @Nullable.
+  links:
+    homepage: https://github.com/haisi/valide
+  authors:
+    - Hasan Selman Kara
+  license: Apache-2.0
+  inceptionYear: "2026"
+  languages:
+    java:
+      groupId: li.selman
+      version: "25"
+
+release:
+  github:
+    owner: haisi
+    name: valide
+    overwrite: true
+    changelog:
+      formatted: ALWAYS
+      preset: conventional-commits
+
+signing:
+  active: ALWAYS
+  pgp:
+    armored: true
+
+deploy:
+  maven:
+    mavenCentral:
+      sonatype:
+        active: ALWAYS
+        url: https://central.sonatype.com/api/v1/publisher
+        stagingRepositories:
+          - target/staging-deploy
+        applyMavenCentralRules: true
