@@ -12,6 +12,8 @@ public class JRNGenerator {
     private static final int CODE_LENGTH = 5;
     private static final RandomGenerator RANDOM = new SecureRandom();
 
+    private JRNGenerator() {}
+
     static JRN at(YearMonth yearMonth) {
         int year = yearMonth.getYear();
 
