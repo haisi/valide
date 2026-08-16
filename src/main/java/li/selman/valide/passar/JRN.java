@@ -3,7 +3,6 @@ package li.selman.valide.passar;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import li.selman.valide.validator.ValidationResult;
 import li.selman.valide.validator.ValueObjectValidationException;
@@ -52,14 +51,9 @@ public record JRN(String value) {
     }
 
     public YearMonth yearMonth() {
-        Matcher matcher = PATTERN.matcher(value);
-
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Invalid value: " + value);
-        }
-
-        int year = 2000 + Integer.parseInt(matcher.group("year"));
-        int month = Integer.parseInt(matcher.group("month"));
+        // The compact constructor guarantees the value matches PATTERN, so the prefix is always YYMM.
+        int year = 2000 + Integer.parseInt(value.substring(0, 2));
+        int month = Integer.parseInt(value.substring(2, 4));
 
         return YearMonth.of(year, month);
     }
