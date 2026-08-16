@@ -7,7 +7,12 @@
 [![License](https://img.shields.io/github/license/haisi/valide)](LICENSE)
 [![Mutation Score](https://haisi.github.io/valide/pit/badge.svg)](https://haisi.github.io/valide/pit/)
 
-Jakarta Bean Validation constraint that recursively validates that every attribute of a class or record is non-null unless annotated with JSpecify's @Nullable.
+Two Jakarta Bean Validation building blocks:
+
+- **`@NullSafe`** — recursively validates that every attribute of a class or record is non-null unless
+  annotated with JSpecify's `@Nullable`.
+- **`ValueValidator` / `@ValidValue`** — lets a value object state its rules once and have both its
+  constructor and Bean Validation enforce them.
 
 [**Website**](https://haisi.github.io/valide/)
 
@@ -23,6 +28,8 @@ already):
     <version>VERSION</version>
 </dependency>
 ```
+
+### Recursive nullness with `@NullSafe`
 
 Annotate a class or record with `@NullSafe`, and mark the parts that really may be null with JSpecify's
 `@Nullable`:
@@ -59,7 +66,7 @@ Set<ConstraintViolation<Order>> violations = validator.validate(order);
 // order.tags[2]                  -> must not be null
 ```
 
-### What is left unchecked
+#### What is left unchecked
 
 Nullness is only asserted where the declaration states it, so `@NullSafe` never guesses:
 
@@ -79,6 +86,74 @@ works the same on code that never adopted them.
 Container positions are rendered into the path segment they belong to (`lines[2].sku`) rather than as separate
 iterable nodes, so `getPropertyPath().toString()` reads as expected while `Path.Node#getKind()` reports
 `PROPERTY` throughout.
+
+### Value objects with `ValueValidator`
+
+A value object — a reference number, a postal code, an IBAN — knows what a valid instance looks like. Writing
+that knowledge down twice, once in the constructor and once as annotations on every request that carries the
+raw string, is how the two drift apart. Write the rules once instead, as a `ValueValidator` that reports one
+`ValidationResult` per broken rule rather than stopping at the first:
+
+```java
+public record PostalCode(String value) {
+
+    private static final Validator VALIDATOR = new Validator();
+
+    public PostalCode {
+        var violations = VALIDATOR.validate(value);
+        if (!violations.isEmpty()) {
+            throw new ValueObjectValidationException(violations);
+        }
+    }
+
+    public static final class Validator implements ValueValidator<String> {
+        @Override
+        public List<ValidationResult> validate(@Nullable String value) {
+            if (value == null) {
+                return List.of(new ValidationResult("postalCode.null", "Postal code must not be null"));
+            }
+            if (!value.matches("[0-9]{4}")) {
+                return List.of(new ValidationResult("postalCode.format", "Postal code must be four digits"));
+            }
+            return List.of();
+        }
+    }
+}
+```
+
+The constructor now guarantees that a `PostalCode` which exists is well-formed, so nothing downstream has to
+re-check it. At the boundary, where the value is still a raw string, `@ValidValue` runs that same validator as
+a Bean Validation constraint:
+
+```java
+record Delivery(@ValidValue(PostalCode.Validator.class) String postalCode) {}
+```
+
+Each `ValidationResult` becomes its own `ConstraintViolation` on that property, using the result's message —
+so a caller sees every broken rule at once instead of one generic "invalid value". Give the constraint a name
+in your domain's language by meta-annotating it:
+
+```java
+@Target({FIELD, PARAMETER, RECORD_COMPONENT})
+@Retention(RUNTIME)
+@Constraint(validatedBy = {})
+@ValidValue(PostalCode.Validator.class)
+public @interface ValidPostalCode {
+    String message() default "invalid postal code";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
+}
+```
+
+For input that is untrusted by nature, don't catch the exception: run the validator directly and show its
+results, or offer a factory that returns `null` instead of throwing. The library ships one complete example of
+all of this — `li.selman.valide.passar.JRN`, a journey reference number, with its `@ValidJRN` constraint and
+both escape hatches:
+
+```java
+List<ValidationResult> problems = JRN.validate(raw);  // every broken rule, nothing constructed
+JRN jrn = JRN.fromCandidate(raw);                     // null if raw is not a valid JRN
+```
 
 ## Building
 

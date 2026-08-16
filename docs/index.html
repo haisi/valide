@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>valide</title>
-<meta name="description" content="Jakarta Bean Validation constraint that recursively validates that every attribute of a class or record is non-null unless annotated with JSpecify's @Nullable.">
+<meta name="description" content="Jakarta Bean Validation building blocks: recursive nullness checking that honours JSpecify's @Nullable, and value objects that state their rules once.">
 <link rel="canonical" href="https://haisi.github.io/valide/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f6f5e'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
@@ -167,7 +167,7 @@
     <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 12.5l5 5L20 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </div>
   <h1>valide</h1>
-  <p class="tagline">Jakarta Bean Validation constraint that recursively validates that every attribute of a class or record is non-null unless annotated with JSpecify's @Nullable.</p>
+  <p class="tagline">Jakarta Bean Validation building blocks: recursive nullness checking that honours JSpecify's @Nullable, and value objects that state their rules once.</p>
   <div class="badges">
     <a href="https://github.com/haisi/valide/actions/workflows/ci.yml"><img src="https://github.com/haisi/valide/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
     <a href="https://central.sonatype.com/artifact/li.selman/valide"><img src="https://img.shields.io/maven-central/v/li.selman/valide.svg" alt="Maven Central version"></a>
@@ -178,12 +178,14 @@
 </header>
 
 <main>
-  <!-- TODO: replace the placeholder sections below with your library's actual pitch. -->
   <section>
     <h2>The problem</h2>
     <p>
-      Describe the problem this library solves in a sentence or two — what's awkward, error-prone, or
-      missing without it.
+      Bean Validation makes you repeat yourself. Nullness is asserted one <code>@NotNull</code> at a time,
+      even though your code already says which parts may be null — JSpecify's <code>@Nullable</code> is
+      right there in the declaration, and nothing reads it. And a value object's rules end up written twice:
+      once in its constructor, and again as annotations on every request that carries the raw string. Two
+      copies of one rule drift apart.
     </p>
   </section>
 
@@ -191,16 +193,28 @@
     <h2>What it does</h2>
     <div class="cards">
       <div class="card">
-        <h3>Card one</h3>
-        <p>One concrete capability, in plain language.</p>
+        <h3>Nullness from the declaration</h3>
+        <p>
+          <code>@NullSafe</code> walks the whole object graph and reports every attribute holding
+          <code>null</code> that its declared type does not permit. <code>@Nullable List&lt;String&gt;</code>
+          and <code>List&lt;@Nullable String&gt;</code> mean different things, and it honours the difference.
+        </p>
       </div>
       <div class="card">
-        <h3>Card two</h3>
-        <p>A second capability.</p>
+        <h3>Rules written once</h3>
+        <p>
+          A <code>ValueValidator</code> holds a value object's rules. Its constructor runs them, so an
+          instance that exists is well-formed; <code>@ValidValue</code> runs the same implementation at the
+          boundary, where the value is still a raw string.
+        </p>
       </div>
       <div class="card">
-        <h3>Card three</h3>
-        <p>What it deliberately doesn't do, or how it stays out of the way.</p>
+        <h3>One violation per problem</h3>
+        <p>
+          Every broken rule becomes its own <code>ConstraintViolation</code>, with a property path locating
+          it — <code>lines[2].sku</code> — so a caller sees everything that is wrong at once, not just the
+          first thing.
+        </p>
       </div>
     </div>
   </section>
@@ -213,6 +227,39 @@
     &lt;artifactId&gt;valide&lt;/artifactId&gt;
     &lt;version&gt;VERSION&lt;/version&gt;
 &lt;/dependency&gt;</code></pre>
+    <p>Mark what may be null, and let the constraint check the rest — recursively, without annotating the
+      nested types:</p>
+    <pre><code>@NullSafe
+record Order(
+        String id,                              // must not be null
+        @Nullable String note,                  // may be null
+        List&lt;String&gt; tags,                      // list and every element must not be null
+        List&lt;@Nullable String&gt; optionalTags,    // list must not be null, elements may be
+        Customer customer) {}                   // must not be null, and is validated recursively</code></pre>
+    <p>Or give a value object its rules, and enforce them in both places that matter:</p>
+    <pre><code>public record PostalCode(String value) {
+
+    private static final Validator VALIDATOR = new Validator();
+
+    public PostalCode {
+        var violations = VALIDATOR.validate(value);
+        if (!violations.isEmpty()) {
+            throw new ValueObjectValidationException(violations);
+        }
+    }
+
+    public static final class Validator implements ValueValidator&lt;String&gt; {
+        @Override
+        public List&lt;ValidationResult&gt; validate(@Nullable String value) {
+            return value != null &amp;&amp; value.matches("[0-9]{4}")
+                    ? List.of()
+                    : List.of(new ValidationResult("postalCode.format", "Postal code must be four digits"));
+        }
+    }
+}
+
+// at the boundary, where it is still a raw string:
+record Delivery(@ValidValue(PostalCode.Validator.class) String postalCode) {}</code></pre>
     <p>Full walkthrough is in the
       <a href="https://github.com/haisi/valide#readme">README</a>.</p>
   </section>
