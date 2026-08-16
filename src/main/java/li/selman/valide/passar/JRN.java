@@ -33,6 +33,12 @@ public record JRN(String value) {
             Pattern.compile("^(?<year>[0-9]{2})" + "(?<month>0[1-9]|1[0-2])" + "(?<code>[A-HJ-KM-NP-Za-km-z1-9]{5})$");
     private static final Validator VALIDATOR = new Validator();
 
+    /**
+     * Rejects any raw value that is not a well-formed JRN.
+     *
+     * @throws ValueObjectValidationException if the value breaks at least one rule; the exception carries all
+     *     of them
+     */
     public JRN {
         var violations = VALIDATOR.validate(value);
 
@@ -41,15 +47,30 @@ public record JRN(String value) {
         }
     }
 
+    /**
+     * Creates a JRN from a raw value that is expected to be valid.
+     *
+     * @param value the raw JRN
+     * @return the JRN
+     * @throws ValueObjectValidationException if the value is not a well-formed JRN
+     */
     public static JRN of(String value) {
         return new JRN(value);
     }
 
+    /**
+     * Creates a JRN from input that may well be invalid, such as a query parameter or a user's typing.
+     *
+     * @param value the raw value to try
+     * @return the JRN, or {@code null} if the value is not a well-formed JRN; use {@link #validate(String)}
+     *     when the reason matters
+     */
     public static @Nullable JRN fromCandidate(String value) {
         var violations = VALIDATOR.validate(value);
         return !violations.isEmpty() ? null : new JRN(value);
     }
 
+    /** {@return the year and month this JRN was issued in, always within 2000-2099} */
     public YearMonth yearMonth() {
         // The compact constructor guarantees the value matches PATTERN, so the prefix is always YYMM.
         int year = 2000 + Integer.parseInt(value.substring(0, 2));
@@ -58,10 +79,21 @@ public record JRN(String value) {
         return YearMonth.of(year, month);
     }
 
+    /**
+     * Checks a raw value without constructing anything, for when the reason a value is rejected has to be
+     * shown to someone.
+     *
+     * @param value the raw value to check
+     * @return one result per broken rule, empty if the value is a well-formed JRN
+     */
     public static List<ValidationResult> validate(String value) {
         return VALIDATOR.validate(value);
     }
 
+    /**
+     * The rules of a JRN, in the one place both the record's constructor and the {@link ValidJRN} constraint
+     * read them from.
+     */
     public static final class Validator implements ValueValidator<String> {
 
         @Override
