@@ -57,7 +57,7 @@
         <error-prone.patch-args/>
 
         <expressly.version>6.0.0</expressly.version>
-        <hibernate-validator.version>9.0.1.Final</hibernate-validator.version>
+        <hibernate-validator.version>9.1.3.Final</hibernate-validator.version>
         <jakarta.validation-api.version>3.1.1</jakarta.validation-api.version>
         <jspecify.version>1.0.1</jspecify.version>
         <junit.version>6.1.2</junit.version>
